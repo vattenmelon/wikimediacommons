@@ -65,8 +65,8 @@ namespace wikimedia_commons
             HttpWebRequest request = (HttpWebRequest)asynchronousResult.AsyncState;
 
             HttpWebResponse response = (HttpWebResponse)request.EndGetResponse(asynchronousResult);
-            
 
+            String file;
             using (StreamReader streamReader1 = new StreamReader(response.GetResponseStream()))
             {
 
@@ -74,51 +74,47 @@ namespace wikimedia_commons
                 XDocument xdoc = XDocument.Parse(resultString, LoadOptions.None);
                 response.GetResponseStream().Close();
                 response.Close();
-                String file = xdoc.Element("api").Element("query").Element("pages").Element("page").Element("imageinfo").Element("ii").Attribute("url").Value;
+                file = xdoc.Element("api").Element("query").Element("pages").Element("page").Element("imageinfo").Element("ii").Attribute("url").Value;
+                
                 System.Diagnostics.Debug.WriteLine("file: " + file);
-                if (file.ToLower().EndsWith(".svg"))
+                if (!(file.Trim().ToLower().EndsWith(".png") || file.Trim().ToLower().EndsWith(".jpg")))
                 {
                     System.Diagnostics.Debug.WriteLine("unsupported file: " + file);
                     return;
                 }
-                HttpWebRequest webRequest = (HttpWebRequest)WebRequest.Create(new Uri(file));
-                webRequest.BeginGetResponse(new AsyncCallback(ConnectCallback3), webRequest);
-
             }
+                HttpWebRequest webRequest = (HttpWebRequest)WebRequest.Create(new Uri(file));
+                webRequest.BeginGetResponse((result) =>
+                {
+                    request = (HttpWebRequest)result.AsyncState;
+
+                    response = (HttpWebResponse)request.EndGetResponse(result);
+                    var streamReader2 = new StreamReader(response.GetResponseStream());
+
+
+                    Dispatcher.BeginInvoke(() =>
+                    {
+                        var bmp = new System.Windows.Media.Imaging.BitmapImage();
+                        bmp.SetSource(streamReader2.BaseStream);
+
+                        var imageBrush = new ImageBrush
+                        {
+                            ImageSource = bmp,
+                            //Opacity = 0.5d,
+                            Stretch = Stretch.UniformToFill
+                        };
+
+                        this.ContentPanel.Background = imageBrush;
+                        streamReader2.BaseStream.Close();
+                        response.GetResponseStream().Close();
+                        response.Close();
+                    });
+
+                }, webRequest);
+
+    
         }
     
-
-         private void ConnectCallback3(IAsyncResult asynchronousResult)
-            {
-
-            HttpWebRequest request = (HttpWebRequest)asynchronousResult.AsyncState;
-
-            HttpWebResponse response = (HttpWebResponse)request.EndGetResponse(asynchronousResult);
-            StreamReader streamReader1 = new StreamReader(response.GetResponseStream());
-
-             var s = streamReader1.BaseStream;
-    
-             Dispatcher.BeginInvoke(() =>
-             {
-                 var bmp = new System.Windows.Media.Imaging.BitmapImage();
-                 bmp.SetSource(s);
-                 
-                 var imageBrush = new ImageBrush
-                 {
-                     ImageSource = bmp,
-                     //Opacity = 0.5d,
-                     Stretch = Stretch.UniformToFill
-                 };
-
-                 this.ContentPanel.Background = imageBrush;
-                 s.Close();
-                 response.GetResponseStream().Close();
-                 response.Close();
-             });
-             
-
-
-        }
 
         
         private void Button_Click(object sender, RoutedEventArgs e)
