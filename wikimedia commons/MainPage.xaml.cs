@@ -72,14 +72,17 @@ namespace wikimedia_commons
 
                 String resultString = streamReader1.ReadToEnd();
                 XDocument xdoc = XDocument.Parse(resultString, LoadOptions.None);
-
-                String file = xdoc.Element("api").Element("query").Element("pages").Element("page").Element("imageinfo").Element("ii").Attribute("url").Value;
-                System.Diagnostics.Debug.WriteLine("file: " + file);
-                HttpWebRequest webRequest = (HttpWebRequest)WebRequest.Create(new Uri(file));
-                webRequest.BeginGetResponse(new AsyncCallback(ConnectCallback3), webRequest);
-
                 response.GetResponseStream().Close();
                 response.Close();
+                String file = xdoc.Element("api").Element("query").Element("pages").Element("page").Element("imageinfo").Element("ii").Attribute("url").Value;
+                System.Diagnostics.Debug.WriteLine("file: " + file);
+                if (file.ToLower().EndsWith(".svg"))
+                {
+                    System.Diagnostics.Debug.WriteLine("unsupported file: " + file);
+                    return;
+                }
+                HttpWebRequest webRequest = (HttpWebRequest)WebRequest.Create(new Uri(file));
+                webRequest.BeginGetResponse(new AsyncCallback(ConnectCallback3), webRequest);
 
             }
         }
@@ -95,44 +98,33 @@ namespace wikimedia_commons
 
              var s = streamReader1.BaseStream;
     
-             Del handler = updateBackground;
-             Dispatcher.BeginInvoke(handler, new object[]{s, response});
+             Dispatcher.BeginInvoke(() =>
+             {
+                 var bmp = new System.Windows.Media.Imaging.BitmapImage();
+                 bmp.SetSource(s);
+                 
+                 var imageBrush = new ImageBrush
+                 {
+                     ImageSource = bmp,
+                     //Opacity = 0.5d,
+                     Stretch = Stretch.UniformToFill
+                 };
+
+                 this.ContentPanel.Background = imageBrush;
+                 s.Close();
+                 response.GetResponseStream().Close();
+                 response.Close();
+             });
              
-             
-    
+
 
         }
 
-        public delegate void Del(Stream s, HttpWebResponse response);
-
-
-        private void updateBackground(Stream s, HttpWebResponse response)
+        
+        private void Button_Click(object sender, RoutedEventArgs e)
         {
-
-            var bmp = new System.Windows.Media.Imaging.BitmapImage();
-            bmp.SetSource(s);
-         
-            var imageBrush = new ImageBrush
-            {
-                ImageSource = bmp,
-                //Opacity = 0.5d,
-                Stretch = Stretch.UniformToFill
-            };
-        
-            this.ContentPanel.Background = imageBrush;
-            s.Close();
-            response.GetResponseStream().Close();
-            response.Close();
+            GetImage();
         }
-
-
-        
-                private void Button_Click(object sender, RoutedEventArgs e)
-                {
-                   // photoChooserTask.Show();
-                    
-                    GetImage();
-                }
 
         // Sample code for building a localized ApplicationBar
         //private void BuildLocalizedApplicationBar()
